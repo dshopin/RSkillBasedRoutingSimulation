@@ -131,37 +131,52 @@ for(row in 1:nrow(tasks)){
     t2 <- Sys.time()
     overflow.time <- overflow.time + (t2-t1)
     
+    
     ######################################
     #Transfer calls from queue to servers#
     ######################################
-    servers <- servers[order(-servers$idle.time),] #order by descending idle time
-    
-    t1 <- Sys.time()
-    for(t in queue$task_id){sdfsdfsdfsdfsdfsdfsdfsdfs
+    available.servers <- servers[is.na(servers$task_id), 'server_id']
+   
+    if(nrow(queue) > 0 & length(available.servers) > 0){
       
-      
-      available.server <- servers[is.na(servers$task_id) & servers[,queue[queue$task_id==t,'skill']]==1, 'server_id'][1]
-      if (!is.na(available.server)){
-        transfers <- transfers + 1
-        
-        servers[servers$server_id==available.server,'task_id'] <- queue[queue$task_id==t,'task_id']
-        servers[servers$server_id==available.server,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
-        servers[servers$server_id==available.server,'idle.time'] <- NA
-        
-        serverstat <- rbind(serverstat,data.frame(server_id=available.server, event='engage', clock=clock, task_id=t, stringsAsFactors = FALSE))
-        queuestat <- rbind(queuestat,data.frame(task_id=t, event='dequeue', clock=clock, skill=queue[queue$task_id==t,'skill'], stringsAsFactors = FALSE))
-        
-        tasks[tasks$task_id==t,'dequeue.time'] <- clock
-        tasks[tasks$task_id==t,'dequeue.skill'] <- queue[queue$task_id==t,'skill']
-        tasks[tasks$task_id==t,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
-        
-        queue <- queue[!(queue$task_id==t),]
-      }
+      servers <- servers[order(-servers$idle.time),] #order by descending idle time
      
+      for(s in available.servers){
+        t1 <- Sys.time()
+        
+        idx_s <- servers$server_id==s
+        ids_q <- queue$skill %in% names(servers[idx_s,!(colnames(servers) %in% c('server_id','idle.time','release.time','task_id'))]) [
+                                      servers[idx_s,!(colnames(servers) %in% c('server_id','idle.time','release.time','task_id'))]==1]
+        task.to.take <- queue[ids_q,'task_id'][1] #oldest task in queue with appropriate skill
+        
+        # task.to.take <- queue[servers[servers$server_id==s,queue$skill]==1,'task_id'][1] #oldest task in queue with appropriate skill
+        t2 <- Sys.time()
+        print(t2-t1)
+        if(!is.na(task.to.take)){
+          transfers <- transfers + 1
+          
+          
+          servers[servers$server_id==s,'task_id'] <- task.to.take
+          servers[servers$server_id==s,'release.time'] <- clock + queue[queue$task_id==task.to.take,'service.time']
+          servers[servers$server_id==s,'idle.time'] <- NA
+          
+          serverstat <- rbind(serverstat,data.frame(server_id=s, event='engage', clock=clock, task_id=task.to.take, stringsAsFactors = FALSE))
+          queuestat <- rbind(queuestat,data.frame(task_id=task.to.take, event='dequeue', clock=clock, skill=queue[queue$task_id==task.to.take,'skill'], stringsAsFactors = FALSE))
+          
+          tasks[tasks$task_id==task.to.take,'dequeue.time'] <- clock
+          tasks[tasks$task_id==task.to.take,'dequeue.skill'] <- queue[queue$task_id==task.to.take,'skill']
+          tasks[tasks$task_id==task.to.take,'release.time'] <- clock + queue[queue$task_id==task.to.take,'service.time']
+          
+          queue <- queue[!(queue$task_id==task.to.take),]
+        }
+        
+        
+      }
       
     }
     
-    t2 <- Sys.time()
+    
+    
     transfer.time <- transfer.time + (t2-t1)
     
     
@@ -198,7 +213,8 @@ for(row in 1:nrow(tasks)){
   
   
 }
-
+sum(timer$total)
+plot(timer$startqlen,timer$transfer.time, type='l')
 
 
 
