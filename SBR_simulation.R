@@ -3,7 +3,7 @@ rm(list=ls())
 setwd('~\\GitHub\\RSkillBasedRoutingSimulation')
 
 
-ntask <- 100
+ntask <- 5000
 
 main.skills <- c('ZoneA','ZoneB','ZoneD','ZoneE','ZoneG','ZoneGov','ZoneI','ZoneM','ZoneQ','ZoneR','ZoneS','ZoneV')
 overflow.skills <- c('ZoneAOverflow','ZoneBOverflow','ZoneDOverflow','ZoneEOverflow','ZoneGOverflow','ZoneGovOverflow','ZoneIOverflow','ZoneMOverflow','ZoneQOverflow','ZoneROverflow','ZoneSOverflow','ZoneVOverflow','DeptSouthOverflow','DeptNorthOverflow')
