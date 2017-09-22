@@ -199,7 +199,7 @@ for(row in 1:nrow(tasks)){
   
 }
 
-
+sum(timer$total)
 
 
 
