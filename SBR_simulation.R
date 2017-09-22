@@ -137,7 +137,7 @@ for(row in 1:nrow(tasks)){
     servers <- servers[order(-servers$idle.time),] #order by descending idle time
     
     t1 <- Sys.time()
-    for(t in queue$task_id){
+    for(t in queue$task_id){sdfsdfsdfsdfsdfsdfsdfsdfs
       
       
       available.server <- servers[is.na(servers$task_id) & servers[,queue[queue$task_id==t,'skill']]==1, 'server_id'][1]
