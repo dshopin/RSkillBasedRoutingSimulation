@@ -26,6 +26,19 @@
 
 SBR.simulation <- function(tasks, servers, overflow){
   
+  tasks$dequeue.time=NA
+  tasks$dequeue.skill=''
+  tasks$release.time=NA
+  tasks$waiting.time=NA
+  #add iat within skill
+  tasks <- tasks[order(tasks$skill, tasks$arrival.time),]
+  tasks$iat.by.skill <- c(tasks[1,'arrival.time'],sapply(2:nrow(tasks), function(x) {if(tasks[x-1,'skill']==tasks[x,'skill']){tasks[x,'arrival.time']-tasks[x-1,'arrival.time']} else tasks[x,'arrival.time']}))
+  #add total iat
+  tasks <- tasks[order(tasks$arrival.time),]
+  tasks$iat.total <- c(tasks[1,'arrival.time'],sapply(2:nrow(tasks), function(x) tasks[x,'arrival.time']-tasks[x-1,'arrival.time']))
+  
+  
+  
   servers <- cbind(servers,data.frame(idle.time=rep(0,nrow(servers)), release.time=rep(NA,nrow(servers)), task_id=rep(NA,nrow(servers))))
   
   queue <- data.frame(task_id=as.numeric(NULL), enqueue.time=as.numeric(NULL), service.time=as.numeric(NULL), overflow.time=as.numeric(NULL), skill=as.character(NULL), stringsAsFactors = FALSE)
@@ -92,6 +105,7 @@ SBR.simulation <- function(tasks, servers, overflow){
           queuestat <- rbind(queuestat,data.frame(task_id=t, event='dequeue', clock=clock, skill=queue[queue$task_id==t,'skill'], stringsAsFactors = FALSE))
           
           tasks[tasks$task_id==t,'dequeue.time'] <- clock
+          tasks[tasks$task_id==t,'waiting.time'] <- clock - tasks[tasks$task_id==t,'arrival.time']
           tasks[tasks$task_id==t,'dequeue.skill'] <- queue[queue$task_id==t,'skill']
           tasks[tasks$task_id==t,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
           
@@ -124,7 +138,60 @@ SBR.simulation <- function(tasks, servers, overflow){
   }
   
   
-  model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat)
+  ###########################
+  # Post-process queue stats#
+  ###########################
+
+  skill.num <- length(unique(queuestat$skill))
+  queuestat <- rbind(data.frame(task_id=rep(0,skill.num), event=rep('start',skill.num), clock=rep(0,skill.num), skill=unique(queuestat$skill)), queuestat)
+  queuestat$change <- (queuestat$event %in% c('enqueue','overflow')) - (queuestat$event=='dequeue')
+  queuestat <- aggregate(queuestat$change, by=list(skill=queuestat$skill, clock=queuestat$clock), FUN=sum)
+  queuestat <- queuestat[queuestat$x != 0 | queuestat$clock==0,]
+  
+  #L by skills
+  queuestat <- queuestat[order(queuestat$skill, queuestat$clock),]
+  queuestat$L.by.skill <- ave(queuestat$x,by=queuestat$skill, FUN=cumsum)
+  queuestat$duration.by.skill <- c(sapply(1:(nrow(queuestat)-1), function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else NA}),NA)
+  
+  #L total
+  queuestat <- queuestat[order(queuestat$clock),]
+  queuestat$L.total <- cumsum(queuestat$x)
+  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),NA)
+  
+  queuestat$x <- NULL
+  
+  
+  
+  
+  ###########################
+  # Plots                   #
+  ###########################
+  library(ggplot2)
+  
+  L.by.skill<-ggplot(queuestat, aes(x = clock, y = L.by.skill, color = skill, shape=skill)) +
+    scale_shape_manual(values=1:nlevels(queuestat$skill)) +
+    geom_step()+
+    geom_point(size=2)+
+    ylab("Queue (L)")+
+    xlab("Time")
+  
+  L.total <-ggplot(queuestat, aes(x = clock, y = L.total)) +
+    geom_step()+
+    ylab("Queue (L)")+
+    xlab("Time")
+  
+  Wq.total <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time)) +
+           geom_histogram(binwidth=1)+
+           xlab("Waiting time (Wq)")
+         
+  Wq.by.skill <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time, color=skill, fill=skill)) +
+           geom_histogram(binwidth=1)+
+           facet_grid(skill~.)
+         xlab("Waiting time (Wq)")
+  
+  
+  model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat
+                ,plots=list(L.by.skill=L.by.skill, L.total=L.total, Wq.total=Wq.total, Wq.by.skill=Wq.by.skill))
   return(model)
   
 }
