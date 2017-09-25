@@ -151,17 +151,52 @@ SBR.simulation <- function(tasks, servers, overflow){
   #L by skills
   queuestat <- queuestat[order(queuestat$skill, queuestat$clock),]
   queuestat$L.by.skill <- ave(queuestat$x,by=queuestat$skill, FUN=cumsum)
-  queuestat$duration.by.skill <- c(sapply(1:(nrow(queuestat)-1), function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else NA}),NA)
+  queuestat$duration.by.skill <- c(sapply(1:(nrow(queuestat)-1)
+                                          , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)}), max(tasks$arrival.time))
   
   #L total
   queuestat <- queuestat[order(queuestat$clock),]
   queuestat$L.total <- cumsum(queuestat$x)
-  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),NA)
+  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time))
   
   queuestat$x <- NULL
   
   
   
+  
+  ###########################
+  #    Summary              #
+  ###########################
+  
+  mysummary <- function(var){
+  by.skill <- aggregate(var, by=list(skill=tasks$skill)
+                        ,FUN=function(x) c(mean=mean(x, na.rm = TRUE),quantile(x,prob=c(0.8,0.9,0.95,0.99), na.rm = TRUE))
+                  )
+  total <-  c(mean=mean(var, na.rm = TRUE), quantile(var,prob=c(0.8,0.9,0.95,0.99), na.rm = TRUE))
+  
+  return(list(by.skill, total))
+  }
+  
+  iat.by.skill <- mysummary(tasks$iat.by.skill)[1]
+  iat.total  <- mysummary(tasks$iat.by.skill)[2]
+  service.by.skill <- mysummary(tasks$service.time)[1]
+  service.total  <- mysummary(tasks$service.time)[2]
+  wait.by.skill <- mysummary(tasks$waiting.time)[1]
+  wait.total  <- mysummary(tasks$waiting.time)[2]
+  
+  
+  L.mean.by.skill <- aggregate(queuestat$L.by.skill*queuestat$duration.by.skill, by=list(skill=queuestat$skill)
+                              ,FUN=sum)
+
+  L.mean.by.skill$x <- L.mean.by.skill$x / aggregate(queuestat$duration.by.skill, by=list(skill=queuestat$skill)
+                                                     ,FUN=sum)$x
+  
+  L.mean.total <- sum(queuestat$L.total*queuestat$duration.total)/sum(queuestat$duration.total)
+
+  
+
+  
+
   
   ###########################
   # Plots                   #
@@ -191,7 +226,16 @@ SBR.simulation <- function(tasks, servers, overflow){
   
   
   model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat
-                ,plots=list(L.by.skill=L.by.skill, L.total=L.total, Wq.total=Wq.total, Wq.by.skill=Wq.by.skill))
+                ,plots=list(L.by.skill=L.by.skill, L.total=L.total, Wq.total=Wq.total, Wq.by.skill=Wq.by.skill)
+                ,summary=list( iat.by.skill=iat.by.skill
+                              ,iat.total=iat.total
+                              ,service.by.skill=service.by.skill
+                              ,service.total=service.total
+                              ,wait.by.skill=wait.by.skill
+                              ,wait.total=wait.total
+                              ,L.mean.by.skill=L.mean.by.skill
+                              ,L.mean.total=L.mean.total
+                ))
   return(model)
   
 }

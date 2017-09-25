@@ -56,7 +56,7 @@ qmodel <- SBR.simulation(tasks=tasks, servers=servers, overflow=ofr)
 
 
 
+tasks <- qmodel$tasks
 
-
-
-
+queuestat <- qmodel$queuestat
+serverstat <- qmodel$serverstat
