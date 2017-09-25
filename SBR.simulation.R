@@ -1,0 +1,139 @@
+###########################################################################
+#              Function to simulate Skill-based routing queueing system   #
+###########################################################################
+#
+# tasks - data frame with the following mandatory variables:
+#         'task_id' (numeric)
+#         'arrival.time' (numeric)
+#         'service.time' (numeric)
+#         'skill' (character)
+
+# servers - data frame with mandatory variable 'server_id'. All remaining variables are interpreted as different skills and 
+#           must have values 0 or 1 (if a server has or has not the skill)
+
+# overflow - data frame with information on overflow routing with mandatory variables:
+#     'skill' (character)
+#     'overflow.skill' (character)
+#     'threshold' (numeric)
+
+#
+# The function produces a named list containing the following data frames:
+#   tasks - all tasksk with initial info + release time, dequeue time, dequeue skill.tasks
+#   serverstat - all events of engaging/releasing servers
+#   queuestat  - all events of enqueueing/dequeueing/overflowing
+#   
+
+
+SBR.simulation <- function(tasks, servers, overflow){
+  
+  servers <- cbind(servers,data.frame(idle.time=rep(0,nrow(servers)), release.time=rep(NA,nrow(servers)), task_id=rep(NA,nrow(servers))))
+  
+  queue <- data.frame(task_id=as.numeric(NULL), enqueue.time=as.numeric(NULL), service.time=as.numeric(NULL), overflow.time=as.numeric(NULL), skill=as.character(NULL), stringsAsFactors = FALSE)
+  
+  
+  #data frames for simulation statistics
+  serverstat <- data.frame(server_id=as.character(NULL), event=as.character(NULL), clock=as.numeric(NULL), task_id=as.numeric(NULL), stringsAsFactors = FALSE)
+  queuestat <- data.frame(task_id=as.numeric(NULL), event=as.character(NULL), clock=as.numeric(NULL), skill=as.character(NULL), stringsAsFactors = FALSE)
+  
+  
+  next.event <- 0
+  clock <- 0
+  
+  
+  for(row in 1:nrow(tasks)){
+    
+    while(clock < tasks[row,'arrival.time']){
+      
+      
+      #######################
+      #  Releasing servers  #
+      #######################
+      for (s in servers[servers$release.time==clock & !is.na(servers$task_id),'server_id']){
+        
+        serverstat <- rbind(serverstat,data.frame(server_id=s, event='release', clock=clock, task_id=servers[servers$server_id==s,'task_id'], stringsAsFactors = FALSE))
+        
+        servers[servers$server_id==s,'task_id'] <- NA
+        servers[servers$server_id==s,'release.time'] <- NA
+        servers[servers$server_id==s,'idle.time'] <- 0
+      }
+      
+      
+      ###################################
+      #Overflow those reached thresholds#
+      ###################################
+      for (t in queue[queue$overflow.time==clock & !is.na(queue$overflow.time),'task_id']){
+        
+        overflow.skill <- overflow[overflow$skill==queue[queue$task_id==t,'skill'], 'overflow.skill']
+        overflow.threshold <- overflow[overflow$skill==overflow.skill, 'threshold']
+          
+        queue[queue$task_id==t,'skill'] <- overflow.skill
+        if(length(overflow.threshold)>0) queue[queue$task_id==t,'overflow.time'] <- clock + overflow.threshold
+        else queue[queue$task_id==t,'overflow.time'] <- NA
+          
+        queuestat <- rbind(queuestat,data.frame(task_id=t, event='overflow', clock=clock, skill=overflow.skill, stringsAsFactors = FALSE))
+      }
+      
+      ######################################
+      #Transfer calls from queue to servers#
+      ######################################
+      servers <- servers[order(-servers$idle.time),] #order by descending idle time
+      
+      for(t in queue$task_id){
+        
+        
+        available.server <- servers[is.na(servers$task_id) & servers[,queue[queue$task_id==t,'skill']]==1, 'server_id'][1]
+        if (!is.na(available.server)){
+          
+          servers[servers$server_id==available.server,'task_id'] <- queue[queue$task_id==t,'task_id']
+          servers[servers$server_id==available.server,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
+          servers[servers$server_id==available.server,'idle.time'] <- NA
+          
+          serverstat <- rbind(serverstat,data.frame(server_id=available.server, event='engage', clock=clock, task_id=t, stringsAsFactors = FALSE))
+          queuestat <- rbind(queuestat,data.frame(task_id=t, event='dequeue', clock=clock, skill=queue[queue$task_id==t,'skill'], stringsAsFactors = FALSE))
+          
+          tasks[tasks$task_id==t,'dequeue.time'] <- clock
+          tasks[tasks$task_id==t,'dequeue.skill'] <- queue[queue$task_id==t,'skill']
+          tasks[tasks$task_id==t,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
+          
+          queue <- queue[!(queue$task_id==t),]
+        }
+       
+        
+      }
+      
+      #####################
+      #Find the next event#
+      #####################
+      
+      next.event <- min(tasks[row,'arrival.time'], queue$overflow.time, servers$release.time, na.rm=TRUE)
+      servers$idle.time <- servers$idle.time + (next.event - clock)
+      clock <- next.event
+      
+    }
+    
+   
+    #####################
+    #  New call arrives #
+    #####################
+    overflow.threshold <- overflow[overflow$skill==tasks[row,'skill'], 'threshold']
+    queue <- rbind(queue,data.frame(task_id=tasks[row,'task_id'], enqueue.time=clock, service.time=tasks[row,'service.time'], overflow.time=clock+overflow.threshold, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
+    
+    queuestat <- rbind(queuestat,data.frame(task_id=tasks[row,'task_id'], event='enqueue', clock=clock, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
+    
+    
+  }
+  
+  
+  model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat)
+  return(model)
+  
+}
+
+
+
+
+
+
+
+
+
