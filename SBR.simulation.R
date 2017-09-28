@@ -130,7 +130,9 @@ SBR.simulation <- function(tasks, servers, overflow){
     #  New call arrives #
     #####################
     overflow.threshold <- overflow[overflow$skill==tasks[row,'skill'], 'threshold']
-    queue <- rbind(queue,data.frame(task_id=tasks[row,'task_id'], enqueue.time=clock, service.time=tasks[row,'service.time'], overflow.time=clock+overflow.threshold, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
+    if(length(overflow.threshold)>0) overflow.time <- clock + overflow.threshold
+    else overflow.time <- NA
+    queue <- rbind(queue,data.frame(task_id=tasks[row,'task_id'], enqueue.time=clock, service.time=tasks[row,'service.time'], overflow.time=overflow.time, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
     
     queuestat <- rbind(queuestat,data.frame(task_id=tasks[row,'task_id'], event='enqueue', clock=clock, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
     
@@ -152,12 +154,12 @@ SBR.simulation <- function(tasks, servers, overflow){
   queuestat <- queuestat[order(queuestat$skill, queuestat$clock),]
   queuestat$L.by.skill <- ave(queuestat$x,by=queuestat$skill, FUN=cumsum)
   queuestat$duration.by.skill <- c(sapply(1:(nrow(queuestat)-1)
-                                          , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)}), max(tasks$arrival.time))
+                                          , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)-queuestat[x,'clock']}), max(tasks$arrival.time-queuestat[nrow(queuestat)-1,'clock']))
   
   #L total
   queuestat <- queuestat[order(queuestat$clock),]
   queuestat$L.total <- cumsum(queuestat$x)
-  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time))
+  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time)-queuestat[nrow(queuestat)-1,'clock'])
   
   queuestat$x <- NULL
   
