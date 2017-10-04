@@ -16,6 +16,8 @@
 #     'overflow.skill' (character)
 #     'threshold' (numeric)
 
+# warmup - float between 0 and 1, top fraction of stats to cut off after simulation
+
 #
 # The function produces a named list containing the following data frames:
 #   tasks - all tasksk with initial info + release time, dequeue time, dequeue skill.tasks
@@ -24,7 +26,7 @@
 #   
 
 
-SBR.simulation <- function(tasks, servers, overflow){
+SBR.simulation <- function(tasks, servers, overflow, warmup=0){
   
   tasks$dequeue.time=NA
   tasks$dequeue.skill=''
@@ -138,6 +140,14 @@ SBR.simulation <- function(tasks, servers, overflow){
     
     
   }
+  ###########################
+  # Cut off warm-up period  #
+  ###########################
+  time.cutoff <- max(tasks$arrival.time) * warmup
+  
+  tasks <- tasks[tasks$arrival.time > time.cutoff,]
+  serverstat <- serverstat[serverstat$clock > time.cutoff,]
+  queuestat <- queuestat[queuestat$clock > time.cutoff,]
   
   
   ###########################
@@ -179,12 +189,12 @@ SBR.simulation <- function(tasks, servers, overflow){
   return(list(by.skill, total))
   }
   
-  iat.by.skill <- mysummary(tasks$iat.by.skill)[1]
-  iat.total  <- mysummary(tasks$iat.by.skill)[2]
-  service.by.skill <- mysummary(tasks$service.time)[1]
-  service.total  <- mysummary(tasks$service.time)[2]
-  wait.by.skill <- mysummary(tasks$waiting.time)[1]
-  wait.total  <- mysummary(tasks$waiting.time)[2]
+  iat.by.skill <- mysummary(tasks$iat.by.skill)[[1]]
+  iat.total  <- mysummary(tasks$iat.by.skill)[[2]]
+  service.by.skill <- mysummary(tasks$service.time)[[1]]
+  service.total  <- mysummary(tasks$service.time)[[2]]
+  wait.by.skill <- mysummary(tasks$waiting.time)[[1]]
+  wait.total  <- mysummary(tasks$waiting.time)[[2]]
   
   
   L.mean.by.skill <- aggregate(queuestat$L.by.skill*queuestat$duration.by.skill, by=list(skill=queuestat$skill)
