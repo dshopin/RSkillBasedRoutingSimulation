@@ -21,7 +21,7 @@
 #
 # The function produces a named list containing the following data frames:
 #   tasks - all tasksk with initial info + release time, dequeue time, dequeue skill.tasks
-#   serverstat - all events of engaging/releasing servers
+#   serverstat - all events of engaging/releasing servers (CURRENTLY TURNED OFF)
 #   queuestat  - all events of enqueueing/dequeueing/overflowing
 #   
 
@@ -30,6 +30,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   tasks$dequeue.time=NA
   tasks$dequeue.skill=''
+  tasks$server_id=''
   tasks$release.time=NA
   tasks$waiting.time=NA
   #add iat within skill
@@ -47,7 +48,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   
   #data frames for simulation statistics
-  serverstat <- data.frame(server_id=as.character(NULL), event=as.character(NULL), clock=as.numeric(NULL), task_id=as.numeric(NULL), stringsAsFactors = FALSE)
+  # serverstat <- data.frame(server_id=as.character(NULL), event=as.character(NULL), clock=as.numeric(NULL), task_id=as.numeric(NULL), stringsAsFactors = FALSE)
   queuestat <- data.frame(task_id=as.numeric(NULL), event=as.character(NULL), clock=as.numeric(NULL), skill=as.character(NULL), stringsAsFactors = FALSE)
   
   start.clock <- min(tasks$arrival.time)
@@ -66,7 +67,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
       #######################
       for (s in servers[servers$release.time==clock & !is.na(servers$task_id),'server_id']){
         
-        serverstat <- rbind(serverstat,data.frame(server_id=s, event='release', clock=clock, task_id=servers[servers$server_id==s,'task_id'], stringsAsFactors = FALSE))
+        # serverstat <- rbind(serverstat,data.frame(server_id=s, event='release', clock=clock, task_id=servers[servers$server_id==s,'task_id'], stringsAsFactors = FALSE))
         
         servers[servers$server_id==s,'task_id'] <- NA
         servers[servers$server_id==s,'release.time'] <- NA
@@ -104,12 +105,13 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
           servers[servers$server_id==available.server,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
           servers[servers$server_id==available.server,'idle.time'] <- NA
           
-          serverstat <- rbind(serverstat,data.frame(server_id=available.server, event='engage', clock=clock, task_id=t, stringsAsFactors = FALSE))
+          # serverstat <- rbind(serverstat,data.frame(server_id=available.server, event='engage', clock=clock, task_id=t, stringsAsFactors = FALSE))
           queuestat <- rbind(queuestat,data.frame(task_id=t, event='dequeue', clock=clock, skill=queue[queue$task_id==t,'skill'], stringsAsFactors = FALSE))
           
           tasks[tasks$task_id==t,'dequeue.time'] <- clock
           tasks[tasks$task_id==t,'waiting.time'] <- clock - tasks[tasks$task_id==t,'arrival.time']
           tasks[tasks$task_id==t,'dequeue.skill'] <- queue[queue$task_id==t,'skill']
+          tasks[tasks$task_id==t,'server_id'] <- as.character(available.server)
           tasks[tasks$task_id==t,'release.time'] <- clock + queue[queue$task_id==t,'service.time']
           
           queue <- queue[!(queue$task_id==t),]
@@ -213,9 +215,6 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
                                                      ,FUN=sum)$x
   
   L.mean.total <- sum(queuestat$L.total*queuestat$duration.total)/sum(queuestat$duration.total)
-
-  
-
   
 
   
@@ -250,7 +249,9 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   
   
-  model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat
+  model <- list(tasks=tasks
+                ,queuestat=queuestat
+                # , serverstat=serverstat
                 ,summary=list( iat.by.skill=iat.by.skill
                               ,iat.total=iat.total
                               ,service.by.skill=service.by.skill
