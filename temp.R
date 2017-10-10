@@ -1,32 +1,51 @@
-###########################################################################
-#              Function to simulate Skill-based routing queueing system   #
-###########################################################################
-#
-# tasks - data frame with the following mandatory variables:
-#         'task_id' (numeric)
-#         'arrival.time' (numeric)
-#         'service.time' (numeric)
-#         'skill' (character)
+setwd('~\\Optimization')
+source('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\SBR.simulation.R')
+source('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\generate.tasks.R')
 
-# servers - data frame with mandatory variable 'server_id'. All remaining variables are interpreted as different skills and 
-#           must have values 0 or 1 (if a server has or has not the skill)
+library(tictoc)
+library(parallel)
 
-# overflow - data frame with information on overflow routing with mandatory variables:
-#     'skill' (character)
-#     'overflow.skill' (character)
-#     'threshold' (numeric)
+skills <- c('ZoneA','ZoneB','ZoneD','ZoneE','ZoneG','ZoneGov','ZoneI','ZoneM','ZoneQ','ZoneR','ZoneS','ZoneV')
 
-# warmup - float between 0 and 1, top fraction of stats to cut off after simulation
+ofr <- data.frame(skill=c('ZoneA','ZoneB','ZoneD','ZoneE','ZoneG','ZoneGov','ZoneI','ZoneM','ZoneQ','ZoneR','ZoneS','ZoneV','ZoneAOverflow','ZoneBOverflow','ZoneDOverflow','ZoneEOverflow','ZoneGOverflow','ZoneROverflow','ZoneVOverflow')
+                  ,overflow.skill=c('ZoneAOverflow','ZoneBOverflow','ZoneDOverflow','ZoneEOverflow','ZoneGOverflow','ZoneGovOverflow','ZoneIOverflow','ZoneMOverflow','ZoneQOverflow','ZoneROverflow','ZoneSOverflow','ZoneVOverflow','DeptSouthOverflow','DeptSouthOverflow','DeptSouthOverflow','DeptNorthOverflow','DeptNorthOverflow','DeptNorthOverflow','DeptNorthOverflow')
+                  ,threshold=c(40,40,40,40,40,40,40,40,40,40,40,40,20,20,20,20,20,20,20)
+                  ,stringsAsFactors = FALSE
+)
 
-#
-# The function produces a named list containing the following data frames:
-#   tasks - all tasksk with initial info + release time, dequeue time, dequeue skill.tasks
-#   serverstat - all events of engaging/releasing servers
-#   queuestat  - all events of enqueueing/dequeueing/overflowing
-#   
+dists <- read.csv(file='DISTS.CSV', fileEncoding = 'UTF-8-BOM')
+dists$zone1 <- as.character(dists$zone1)
 
 
-SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
+servers <- read.csv(file='AGENTS.CSV', fileEncoding = 'UTF-8-BOM')
+servers$server_id <- servers$ResourceLoginID
+servers$date <- as.Date(servers$date, format='%d%b%Y')
+
+realdata <- read.csv(file='QUEUESTATES.CSV', fileEncoding = 'UTF-8-BOM')
+realdata$date <- as.Date(realdata$date, format='%d%b%Y')
+realdata$zone1 <- as.character(realdata$zone1)
+
+date <- as.Date('2016-10-4')
+hour <- 12
+warmup <- 0.4
+
+
+
+set.seed(1)
+tasks <- generate.tasks(skill.names=dists[dists$hour==hour, 'zone1']
+                        ,iat.shapes=dists[dists$hour==hour, 'iat_Shape']
+                        ,iat.scales=dists[dists$hour==hour, 'iat_Scale']
+                        ,serv.shapes=dists[dists$hour==hour, 'talk_Shape']
+                        ,serv.scales=dists[dists$hour==hour, 'talk_Scale']
+                        ,warmup=0.4
+                        ,duration=3600)
+
+
+servers <- servers[servers$hour==hour & servers$date==date,]
+overflow <- ofr
+
+# qmodel <- SBR.simulation(tasks=tasks, servers=servers[servers$hour==hour & servers$date==date,], overflow=ofr, warmup=0.4, plots=FALSE)
+
   
   tasks$dequeue.time=NA
   tasks$dequeue.skill=''
@@ -140,20 +159,16 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
     queuestat <- rbind(queuestat,data.frame(task_id=tasks[row,'task_id'], event='enqueue', clock=clock, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
     
   }
-  ###############################################
-  # Cut off warm-up period  in TASKS            #
-  ###############################################
-
-  tasks <- tasks[tasks$arrival.time > 0,]
   
- 
+  
+  
   
   ###########################
   # Post-process queue stats#
   ###########################
-
-  skill.num <- length(unique(queuestat$skill))
   
+  skill.num <- length(unique(queuestat$skill))
+ 
   queuestat <- rbind(data.frame(task_id=rep(0,skill.num), event=rep('start',skill.num), clock=rep(start.clock,skill.num), skill=unique(queuestat$skill)), queuestat)
   queuestat$change <- (queuestat$event %in% c('enqueue','overflow')) - (queuestat$event=='dequeue')
   queuestat <- aggregate(queuestat$change, by=list(skill=queuestat$skill, clock=queuestat$clock), FUN=sum)
@@ -168,6 +183,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   ####create state of skill queues at clock=0 and delete all warmup history
   queuestat <- queuestat[order(queuestat$clock),]
+  queuestat2 <- queuestat
   #get state of each queue before 0
   zero.states <- queuestat[sapply(unique(queuestat$skill), function(x) max(which(queuestat[queuestat$clock <= 0,'skill']==x))),]
   zero.states$duration.by.skill <- zero.states$duration.by.skill + zero.states$clock
@@ -183,94 +199,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   
   
-  
-  
-  ###########################
-  #    Summary              #
-  ###########################
-  
-  mysummary <- function(var){
-  by.skill <- aggregate(var, by=list(skill=tasks$skill)
-                        ,FUN=function(x) c(mean=mean(x, na.rm = TRUE),quantile(x,prob=c(0.8,0.9,0.95,0.99), na.rm = TRUE))
-                  )
-  total <-  c(mean=mean(var, na.rm = TRUE), quantile(var,prob=c(0.8,0.9,0.95,0.99), na.rm = TRUE))
-  
-  return(list(by.skill, total))
-  }
-  
-  iat.by.skill <- mysummary(tasks$iat.by.skill)[[1]]
-  iat.total  <- mysummary(tasks$iat.by.skill)[[2]]
-  service.by.skill <- mysummary(tasks$service.time)[[1]]
-  service.total  <- mysummary(tasks$service.time)[[2]]
-  wait.by.skill <- mysummary(tasks$waiting.time)[[1]]
-  wait.total  <- mysummary(tasks$waiting.time)[[2]]
-  
-  
-  L.mean.by.skill <- aggregate(queuestat$L.by.skill*queuestat$duration.by.skill, by=list(skill=queuestat$skill)
-                              ,FUN=sum)
-
-  L.mean.by.skill$x <- L.mean.by.skill$x / aggregate(queuestat$duration.by.skill, by=list(skill=queuestat$skill)
-                                                     ,FUN=sum)$x
-  
-  L.mean.total <- sum(queuestat$L.total*queuestat$duration.total)/sum(queuestat$duration.total)
-
-  
-
-  
-
-  
-  ###########################
-  # Plots                   #
-  ###########################
-  if(plots==TRUE){
-    library(ggplot2)
-    
-    L.by.skill<-ggplot(queuestat, aes(x = clock, y = L.by.skill, color = skill, shape=skill)) +
-      scale_shape_manual(values=1:nlevels(queuestat$skill)) +
-      geom_step()+
-      geom_point(size=2)+
-      ylab("Queue (L)")+
-      xlab("Time")
-    
-    L.total <-ggplot(queuestat, aes(x = clock, y = L.total)) +
-      geom_step()+
-      ylab("Queue (L)")+
-      xlab("Time")
-    
-    Wq.total <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time)) +
-      geom_histogram(binwidth=1)+
-      xlab("Waiting time (Wq)")
-    
-    Wq.by.skill <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time, color=skill, fill=skill)) +
-      geom_histogram(binwidth=1)+
-      facet_grid(skill~.)
-    xlab("Waiting time (Wq)")
-    
-  }
+ 
   
   
   
-  model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat
-                ,summary=list( iat.by.skill=iat.by.skill
-                              ,iat.total=iat.total
-                              ,service.by.skill=service.by.skill
-                              ,service.total=service.total
-                              ,wait.by.skill=wait.by.skill
-                              ,wait.total=wait.total
-                              ,L.mean.by.skill=L.mean.by.skill
-                              ,L.mean.total=L.mean.total
-                ))
-  if (plots==TRUE) model <- c(model,plots=list(L.by.skill=L.by.skill, L.total=L.total, Wq.total=Wq.total, Wq.by.skill=Wq.by.skill))
-  
-  return(model)
-  
-}
-
-
-
-
-
-
-
-
-
