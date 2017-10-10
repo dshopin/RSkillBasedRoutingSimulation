@@ -183,7 +183,6 @@ overflow <- ofr
   
   ####create state of skill queues at clock=0 and delete all warmup history
   queuestat <- queuestat[order(queuestat$clock),]
-  queuestat2 <- queuestat
   #get state of each queue before 0
   zero.states <- queuestat[sapply(unique(queuestat$skill), function(x) max(which(queuestat[queuestat$clock <= 0,'skill']==x))),]
   zero.states$duration.by.skill <- zero.states$duration.by.skill + zero.states$clock
