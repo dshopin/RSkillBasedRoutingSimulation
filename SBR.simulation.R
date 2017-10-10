@@ -26,7 +26,7 @@
 #   
 
 
-SBR.simulation <- function(tasks, servers, overflow, warmup=0){
+SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   tasks$dequeue.time=NA
   tasks$dequeue.skill=''
@@ -213,32 +213,35 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0){
   ###########################
   # Plots                   #
   ###########################
-  library(ggplot2)
+  if(plots==TRUE){
+    library(ggplot2)
+    
+    L.by.skill<-ggplot(queuestat, aes(x = clock, y = L.by.skill, color = skill, shape=skill)) +
+      scale_shape_manual(values=1:nlevels(queuestat$skill)) +
+      geom_step()+
+      geom_point(size=2)+
+      ylab("Queue (L)")+
+      xlab("Time")
+    
+    L.total <-ggplot(queuestat, aes(x = clock, y = L.total)) +
+      geom_step()+
+      ylab("Queue (L)")+
+      xlab("Time")
+    
+    Wq.total <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time)) +
+      geom_histogram(binwidth=1)+
+      xlab("Waiting time (Wq)")
+    
+    Wq.by.skill <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time, color=skill, fill=skill)) +
+      geom_histogram(binwidth=1)+
+      facet_grid(skill~.)
+    xlab("Waiting time (Wq)")
+    
+  }
   
-  L.by.skill<-ggplot(queuestat, aes(x = clock, y = L.by.skill, color = skill, shape=skill)) +
-    scale_shape_manual(values=1:nlevels(queuestat$skill)) +
-    geom_step()+
-    geom_point(size=2)+
-    ylab("Queue (L)")+
-    xlab("Time")
-  
-  L.total <-ggplot(queuestat, aes(x = clock, y = L.total)) +
-    geom_step()+
-    ylab("Queue (L)")+
-    xlab("Time")
-  
-  Wq.total <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time)) +
-           geom_histogram(binwidth=1)+
-           xlab("Waiting time (Wq)")
-         
-  Wq.by.skill <- ggplot(tasks[!is.na(tasks$waiting.time),], aes(x = waiting.time, color=skill, fill=skill)) +
-           geom_histogram(binwidth=1)+
-           facet_grid(skill~.)
-         xlab("Waiting time (Wq)")
   
   
   model <- list(tasks=tasks, queuestat=queuestat, serverstat=serverstat
-                ,plots=list(L.by.skill=L.by.skill, L.total=L.total, Wq.total=Wq.total, Wq.by.skill=Wq.by.skill)
                 ,summary=list( iat.by.skill=iat.by.skill
                               ,iat.total=iat.total
                               ,service.by.skill=service.by.skill
@@ -248,6 +251,8 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0){
                               ,L.mean.by.skill=L.mean.by.skill
                               ,L.mean.total=L.mean.total
                 ))
+  if (plots==TRUE) model <- c(model,plots=list(L.by.skill=L.by.skill, L.total=L.total, Wq.total=Wq.total, Wq.by.skill=Wq.by.skill))
+  
   return(model)
   
 }
