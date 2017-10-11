@@ -1,3 +1,4 @@
+
 rm(list=ls())
 setwd('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\')
 source('SBR.simulation.R')
