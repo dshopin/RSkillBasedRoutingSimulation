@@ -161,6 +161,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   # Post-process queue stats#
   ###########################
 
+  queuestat <- queuestat[queuestat$task_id != 0,]
   skill.num <- length(unique(queuestat$skill))
   
   queuestat <- rbind(data.frame(task_id=rep(0,skill.num), event=rep('start',skill.num), clock=rep(start.clock,skill.num), skill=unique(queuestat$skill)), queuestat)
