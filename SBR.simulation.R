@@ -49,7 +49,11 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   #data frames for simulation statistics
   # serverstat <- data.frame(server_id=as.character(NULL), event=as.character(NULL), clock=as.numeric(NULL), task_id=as.numeric(NULL), stringsAsFactors = FALSE)
-  queuestat <- data.frame(task_id=as.numeric(NULL), event=as.character(NULL), clock=as.numeric(NULL), skill=as.character(NULL), stringsAsFactors = FALSE)
+  library(igraph)
+  longest.path <- diameter(graph_from_edgelist(as.matrix(ofr[,c('skill','overflow.skill')]))) + 2
+  
+  queuestat <- data.frame(task_id=numeric(nrow(tasks)*longest.path), event=character(nrow(tasks)*longest.path), clock=numeric(nrow(tasks)*longest.path), skill=character(nrow(tasks)*longest.path), stringsAsFactors = FALSE)
+  queuestat.counter <- 1
   
   start.clock <- min(tasks$arrival.time)
   
@@ -87,7 +91,8 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
         if(length(overflow.threshold)>0) queue[queue$task_id==t,'overflow.time'] <- clock + overflow.threshold
         else queue[queue$task_id==t,'overflow.time'] <- NA
         
-        queuestat <- rbind(queuestat,data.frame(task_id=t, event='overflow', clock=clock, skill=overflow.skill, stringsAsFactors = FALSE))
+        queuestat[queuestat.counter,] <- data.frame(task_id=t, event='overflow', clock=clock, skill=overflow.skill, stringsAsFactors = FALSE)
+        queuestat.counter <- queuestat.counter + 1
       }
       
       ######################################
@@ -106,7 +111,8 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
           servers[servers$server_id==available.server,'idle.time'] <- NA
           
           # serverstat <- rbind(serverstat,data.frame(server_id=available.server, event='engage', clock=clock, task_id=t, stringsAsFactors = FALSE))
-          queuestat <- rbind(queuestat,data.frame(task_id=t, event='dequeue', clock=clock, skill=queue[queue$task_id==t,'skill'], stringsAsFactors = FALSE))
+          queuestat[queuestat.counter,] <- data.frame(task_id=t, event='dequeue', clock=clock, skill=queue[queue$task_id==t,'skill'], stringsAsFactors = FALSE)
+          queuestat.counter <- queuestat.counter + 1
           
           tasks[tasks$task_id==t,'dequeue.time'] <- clock
           tasks[tasks$task_id==t,'waiting.time'] <- clock - tasks[tasks$task_id==t,'arrival.time']
@@ -139,7 +145,8 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
     else overflow.time <- NA
     queue <- rbind(queue,data.frame(task_id=tasks[row,'task_id'], enqueue.time=clock, service.time=tasks[row,'service.time'], overflow.time=overflow.time, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
     
-    queuestat <- rbind(queuestat,data.frame(task_id=tasks[row,'task_id'], event='enqueue', clock=clock, skill=tasks[row,'skill'], stringsAsFactors = FALSE))
+    queuestat[queuestat.counter,] <- data.frame(task_id=tasks[row,'task_id'], event='enqueue', clock=clock, skill=tasks[row,'skill'], stringsAsFactors = FALSE)
+    queuestat.counter <- queuestat.counter + 1
     
   }
   ###############################################
@@ -154,6 +161,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   # Post-process queue stats#
   ###########################
 
+  queuestat <- queuestat[queuestat$task_id != 0,]
   skill.num <- length(unique(queuestat$skill))
   
   queuestat <- rbind(data.frame(task_id=rep(0,skill.num), event=rep('start',skill.num), clock=rep(start.clock,skill.num), skill=unique(queuestat$skill)), queuestat)
