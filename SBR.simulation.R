@@ -173,7 +173,8 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   queuestat <- queuestat[order(queuestat$skill, queuestat$clock),]
   queuestat$L.by.skill <- ave(queuestat$x,by=queuestat$skill, FUN=cumsum)
   queuestat$duration.by.skill <- c(sapply(1:(nrow(queuestat)-1)
-                                          , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)-queuestat[x,'clock']}), max(tasks$arrival.time-queuestat[nrow(queuestat)-1,'clock']))
+                                          , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)-queuestat[x,'clock']}), max(tasks$arrival.time)-queuestat[nrow(queuestat),'clock'])
+  
   
   
   ####create state of skill queues at clock=0 and delete all warmup history
@@ -187,7 +188,7 @@ SBR.simulation <- function(tasks, servers, overflow, warmup=0, plots=FALSE){
   
   #L total
   queuestat$L.total <- cumsum(queuestat$x) + sum(queuestat[queuestat$clock == 0, 'L.by.skill'])
-  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time)-queuestat[nrow(queuestat)-1,'clock'])
+  queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time)-queuestat[nrow(queuestat),'clock'])
   
   queuestat$x <- NULL
   

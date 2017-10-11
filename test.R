@@ -36,11 +36,63 @@ tasks <- generate.tasks(skill.names=dists[dists$hour==hour, 'zone1']
                         ,warmup=0.4
                         ,duration=3600)
 
+###############################################
+##Comparing performance of different branches##
+###############################################
 time.branch <- sapply(1:20, function(x) system.time(
 qmodel <- SBR.simulation(tasks=tasks, servers=servers[servers$hour==hour & servers$date==date,], overflow=ofr, warmup=0.4, plots=FALSE)
 )[3])
 
-dim(qmodel$queuestat)
+
+time.master <- sapply(1:100, function(x) system.time(
+  qmodel <- SBR.simulation(tasks=tasks, servers=servers[servers$hour==hour & servers$date==date,], overflow=ofr, warmup=0.4, plots=FALSE)
+)[3])
+
+paste(mean(time.branch)-1.96*sd(time.branch)/10, ' - ', mean(time.branch)+1.96*sd(time.branch)/10)
+paste(mean(time.master)-1.96*sd(time.master)/10, ' - ', mean(time.master)+1.96*sd(time.master)/10)
+################################################
 
 
-tasks2 <- qmodel$tasks
+
+
+
+##############################################################
+##Looking for cases when negative values emerge in QUEUESTAT##
+##############################################################
+
+for(seed in 1:100){
+  set.seed(seed)
+  tasks <- generate.tasks(skill.names=dists[dists$hour==hour, 'zone1']
+                          ,iat.shapes=dists[dists$hour==hour, 'iat_Shape']
+                          ,iat.scales=dists[dists$hour==hour, 'iat_Scale']
+                          ,serv.shapes=dists[dists$hour==hour, 'talk_Shape']
+                          ,serv.scales=dists[dists$hour==hour, 'talk_Scale']
+                          ,warmup=0.4
+                          ,duration=3600)
+  qmodel <- SBR.simulation(tasks=tasks, servers=servers[servers$hour==hour & servers$date==date,], overflow=ofr, warmup=0.4, plots=FALSE)
+  queuestat <- qmodel$queuestat
+  if(any(queuestat$L.by.skill<0) || any(queuestat$duration.by.skill<0) || any(queuestat$L.total<0) || any(queuestat$duration.total<0)){
+    print(seed)
+    break
+  }
+}
+
+
+
+set.seed(94)
+tasks <- generate.tasks(skill.names=dists[dists$hour==hour, 'zone1']
+                        ,iat.shapes=dists[dists$hour==hour, 'iat_Shape']
+                        ,iat.scales=dists[dists$hour==hour, 'iat_Scale']
+                        ,serv.shapes=dists[dists$hour==hour, 'talk_Shape']
+                        ,serv.scales=dists[dists$hour==hour, 'talk_Scale']
+                        ,warmup=0.4
+                        ,duration=3600)
+qmodel <- SBR.simulation(tasks=tasks, servers=servers[servers$hour==hour & servers$date==date,], overflow=ofr, warmup=0.4, plots=FALSE)
+queuestat <- qmodel$queuestat
+##############################################################
+
+
+
+
+
+
