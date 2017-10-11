@@ -36,9 +36,9 @@ tasks <- generate.tasks(skill.names=dists[dists$hour==hour, 'zone1']
                         ,warmup=0.4
                         ,duration=3600)
 
-system.time(
+time.branch <- sapply(1:20, function(x) system.time(
 qmodel <- SBR.simulation(tasks=tasks, servers=servers[servers$hour==hour & servers$date==date,], overflow=ofr, warmup=0.4, plots=FALSE)
-)
+)[3])
 
 dim(qmodel$queuestat)
 
