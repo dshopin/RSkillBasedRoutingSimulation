@@ -1,6 +1,7 @@
-setwd('~\\Optimization')
-source('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\SBR.simulation.R')
-source('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\generate.tasks.R')
+
+setwd('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation')
+source('SBR.simulation.R')
+source('generate.tasks.R')
 
 library(tictoc)
 library(parallel)
@@ -13,15 +14,15 @@ ofr <- data.frame(skill=c('ZoneA','ZoneB','ZoneD','ZoneE','ZoneG','ZoneGov','Zon
                   ,stringsAsFactors = FALSE
 )
 
-dists <- read.csv(file='DISTS.CSV', fileEncoding = 'UTF-8-BOM')
+dists <- read.csv(file='C:\\Users\\e6on6gv\\Documents\\Optimization\\DISTS.CSV', fileEncoding = 'UTF-8-BOM')
 dists$zone1 <- as.character(dists$zone1)
 
 
-servers <- read.csv(file='AGENTS.CSV', fileEncoding = 'UTF-8-BOM')
+servers <- read.csv(file='C:\\Users\\e6on6gv\\Documents\\Optimization\\AGENTS.CSV', fileEncoding = 'UTF-8-BOM')
 servers$server_id <- servers$ResourceLoginID
 servers$date <- as.Date(servers$date, format='%d%b%Y')
 
-realdata <- read.csv(file='QUEUESTATES.CSV', fileEncoding = 'UTF-8-BOM')
+realdata <- read.csv(file='C:\\Users\\e6on6gv\\Documents\\Optimization\\QUEUESTATES.CSV', fileEncoding = 'UTF-8-BOM')
 realdata$date <- as.Date(realdata$date, format='%d%b%Y')
 realdata$zone1 <- as.character(realdata$zone1)
 
@@ -192,7 +193,7 @@ queuestat <- queuestat[queuestat$x != 0 | queuestat$clock == start.clock,]
 queuestat <- queuestat[order(queuestat$skill, queuestat$clock),]
 queuestat$L.by.skill <- ave(queuestat$x,by=queuestat$skill, FUN=cumsum)
 queuestat$duration.by.skill <- c(sapply(1:(nrow(queuestat)-1)
-                                        , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)-queuestat[x,'clock']}), max(tasks$arrival.time)-queuestat[nrow(queuestat)-1,'clock']))
+                                        , function(x) {if(queuestat[x+1,'skill']==queuestat[x,'skill']){queuestat[x+1,'clock']-queuestat[x,'clock']} else max(tasks$arrival.time)-queuestat[x,'clock']}), max(tasks$arrival.time)-queuestat[nrow(queuestat),'clock'])
 
 
 ####create state of skill queues at clock=0 and delete all warmup history
@@ -206,7 +207,7 @@ queuestat <- rbind(zero.states,queuestat[queuestat$clock > 0,])
 
 #L total
 queuestat$L.total <- cumsum(queuestat$x) + sum(queuestat[queuestat$clock == 0, 'L.by.skill'])
-queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time)-queuestat[nrow(queuestat)-1,'clock'])
+queuestat$duration.total <- c(sapply(1:(nrow(queuestat)-1), function(x) queuestat[x+1,'clock']-queuestat[x,'clock']),max(tasks$arrival.time)-queuestat[nrow(queuestat),'clock'])
 
 queuestat$x <- NULL
   

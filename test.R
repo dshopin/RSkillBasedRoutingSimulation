@@ -1,5 +1,6 @@
-setwd('~\\Optimization')
-source('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\SBR.simulation.R')
+
+setwd('C:\\Users\\e6on6gv\\Documents\\GitHub\\RSkillBasedRoutingSimulation\\')
+source('SBR.simulation.R')
 source('generate.tasks.R')
 
 library(tictoc)
@@ -13,15 +14,15 @@ ofr <- data.frame(skill=c('ZoneA','ZoneB','ZoneD','ZoneE','ZoneG','ZoneGov','Zon
                   ,stringsAsFactors = FALSE
 )
 
-dists <- read.csv(file='DISTS.CSV', fileEncoding = 'UTF-8-BOM')
+dists <- read.csv(file='C:\\Users\\e6on6gv\\Documents\\Optimization\\DISTS.CSV', fileEncoding = 'UTF-8-BOM')
 dists$zone1 <- as.character(dists$zone1)
 
 
-servers <- read.csv(file='AGENTS.CSV', fileEncoding = 'UTF-8-BOM')
+servers <- read.csv(file='C:\\Users\\e6on6gv\\Documents\\Optimization\\AGENTS.CSV', fileEncoding = 'UTF-8-BOM')
 servers$server_id <- servers$ResourceLoginID
 servers$date <- as.Date(servers$date, format='%d%b%Y')
 
-realdata <- read.csv(file='QUEUESTATES.CSV', fileEncoding = 'UTF-8-BOM')
+realdata <- read.csv(file='C:\\Users\\e6on6gv\\Documents\\Optimization\\QUEUESTATES.CSV', fileEncoding = 'UTF-8-BOM')
 realdata$date <- as.Date(realdata$date, format='%d%b%Y')
 realdata$zone1 <- as.character(realdata$zone1)
 
@@ -35,6 +36,8 @@ tasks <- generate.tasks(skill.names=dists[dists$hour==hour, 'zone1']
                         ,serv.scales=dists[dists$hour==hour, 'talk_Scale']
                         ,warmup=0.4
                         ,duration=3600)
+
+
 
 ###############################################
 ##Comparing performance of different branches##
